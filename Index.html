@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Piano"/>
+  <meta name="theme-color" content="#0d0015"/>
+  <title>Piano</title>
+  <link rel="manifest" href="manifest.json"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --pink:   #ff2d78;
+      --cyan:   #00f0ff;
+      --purple: #9b30ff;
+      --bg:     #0d0015;
+      --panel:  #110022;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      font-family: 'Share Tech Mono', monospace;
+      display: flex; flex-direction: column;
+      height: 100dvh; overflow: hidden;
+      touch-action: none;
+    }
+
+    /* ── Header ── */
+    #header {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px 6px;
+      border-bottom: 1px solid #2a003a;
+      background: linear-gradient(90deg, #0d0015 0%, #1a0030 50%, #0d0015 100%);
+    }
+    #header h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 15px; letter-spacing: 3px;
+      background: linear-gradient(90deg, var(--pink), var(--cyan));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: none;
+    }
+    #header-right { display: flex; align-items: center; gap: 10px; }
+    .hdr-btn {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px; padding: 4px 10px;
+      border-radius: 20px; cursor: pointer;
+      border: 1px solid var(--purple);
+      background: transparent; color: var(--purple);
+      transition: all .2s;
+    }
+    .hdr-btn:hover, .hdr-btn.on {
+      background: var(--purple); color: #fff;
+      box-shadow: 0 0 8px var(--purple);
+    }
+
+    /* ── Song player panel ── */
+    #player {
+      flex-shrink: 0;
+      background: var(--panel);
+      border-bottom: 1px solid #2a003a;
+      padding: 8px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    #song-list {
+      display: flex; gap: 6px; overflow-x: auto;
+      scrollbar-width: none; padding-bottom: 2px;
+    }
+    #song-list::-webkit-scrollbar { display: none; }
+    .song-chip {
+      flex-shrink: 0;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px; padding: 4px 10px;
+      border-radius: 20px; cursor: pointer;
+      border: 1px solid #3a005a;
+      background: transparent; color: #aa77cc;
+      white-space: nowrap; transition: all .2s;
+    }
+    .song-chip:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+    .song-chip.playing { border-color: var(--pink); color: var(--pink); box-shadow: 0 0 8px var(--pink); }
+
+    #player-controls {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .ctrl-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1px solid var(--cyan); background: transparent;
+      color: var(--cyan); font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .ctrl-btn:hover { background: var(--cyan); color: #000; box-shadow: 0 0 10px var(--cyan); }
+    .ctrl-btn:disabled { border-color: #333; color: #333; cursor: not-allowed; }
+
+    #now-playing {
+      flex: 1; overflow: hidden;
+    }
+    #np-title {
+      font-size: 11px; color: var(--cyan);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #progress-bar-wrap {
+      margin-top: 3px;
+      height: 3px; background: #2a003a; border-radius: 2px; overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--purple), var(--pink));
+      transition: width .1s linear;
+    }
+
+    /* ── Octave bar ── */
+    #oct-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 4px 14px;
+      border-bottom: 1px solid #1a0030;
+    }
+    #oct-bar span { color: #555; font-size: 11px; }
+    #oct-label { color: var(--cyan); font-size: 12px; min-width: 40px; text-align: center; }
+    .oct-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: #1a0030; color: #aaa;
+      border: 1px solid #330055; font-size: 16px; cursor: pointer;
+      transition: all .2s;
+    }
+    .oct-btn:hover { border-color: var(--pink); color: var(--pink); box-shadow: 0 0 6px var(--pink); }
+
+    /* ── Piano ── */
+    #piano-wrap {
+      flex: 1; overflow-x: auto; overflow-y: hidden;
+      position: relative;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin; scrollbar-color: #2a003a #0d0015;
+      background: #080010;
+    }
+    #piano { position: relative; height: 100%; }
+
+    .wkey {
+      position: absolute; top: 0;
+      background: linear-gradient(180deg, #e8e0f0 0%, #ffffff 60%);
+      border: 1px solid #aa88cc;
+      border-top: 2px solid #cc99ee;
+      border-radius: 0 0 7px 7px;
+      cursor: pointer;
+      display: flex; flex-direction: column;
+      justify-content: flex-end; align-items: center; padding-bottom: 6px;
+      transition: background .07s;
+      user-select: none; z-index: 1;
+    }
+    .wkey.active {
+      background: linear-gradient(180deg, #00f0ff44 0%, #aaf9ff 100%);
+      box-shadow: 0 0 14px var(--cyan), inset 0 0 8px #00f0ff55;
+      border-color: var(--cyan);
+    }
+    .wkey .nlabel { font-size: 9px; color: #cc88ee; font-family: 'Share Tech Mono', monospace; }
+    .wkey.hide-label .nlabel { display: none; }
+
+    .bkey {
+      position: absolute; top: 0;
+      background: linear-gradient(180deg, #1a0030 0%, #0d0015 100%);
+      border: 1px solid #330055;
+      border-radius: 0 0 5px 5px;
+      cursor: pointer; z-index: 2;
+      box-shadow: 2px 5px 8px rgba(0,0,0,0.7);
+      transition: background .07s;
+      user-select: none;
+    }
+    .bkey.active {
+      background: linear-gradient(180deg, #ff2d7888 0%, #ff2d78 100%);
+      box-shadow: 0 0 14px var(--pink), inset 0 0 6px #ff2d7855;
+      border-color: var(--pink);
+    }
+    .bkey .nlabel { font-size: 8px; color: #cc44aa; font-family: 'Share Tech Mono', monospace;
+      position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .bkey.hide-label .nlabel { display: none; }
+
+    /* ── Ripple canvas ── */
+    #ripple-canvas {
+      position: fixed; inset: 0; pointer-events: none; z-index: 100;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ripple canvas -->
+<canvas id="ripple-canvas"></canvas>
+
+<!-- Header -->
+<div id="header">
+  <h1>⬡ SYNTH PIANO</h1>
+  <div id="header-right">
+    <button class="hdr-btn on" id="labels-btn">LABELS ON</button>
+  </div>
+</div>
+
+<!-- Song Player -->
+<div id="player">
+  <div id="song-list"></div>
+  <div id="player-controls">
+    <button class="ctrl-btn" id="prev-btn" title="Prev">&#9664;</button>
+    <button class="ctrl-btn" id="play-btn" title="Play">&#9654;</button>
+    <button class="ctrl-btn" id="stop-btn" title="Stop">&#9632;</button>
+    <button class="ctrl-btn" id="next-btn" title="Next">&#9654;&#9654;</button>
+    <div id="now-playing">
+      <div id="np-title">— select a song —</div>
+      <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Octave bar -->
+<div id="oct-bar">
+  <span>OCT</span>
+  <button class="oct-btn" id="oct-down">−</button>
+  <span id="oct-label">C4</span>
+  <button class="oct-btn" id="oct-up">+</button>
+  <span style="color:#333;font-size:10px;margin-left:6px;">scroll to explore</span>
+</div>
+
+<!-- Piano -->
+<div id="piano-wrap">
+  <div id="piano"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  NOTES & FREQUENCIES
+// ─────────────────────────────────────────────
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+function genKeys() {
+  const keys = []; let ni = NOTE_NAMES.indexOf('A'), oct = 0;
+  for (let i = 0; i < 88; i++) {
+    const n = NOTE_NAMES[ni];
+    keys.push({ note:`${n}${oct}`, type: n.includes('#')?'black':'white' });
+    ni++; if (ni>=12){ni=0;oct++;}
+  }
+  return keys;
+}
+const ALL_KEYS   = genKeys();
+const WHITE_KEYS = ALL_KEYS.filter(k=>k.type==='white');
+const BLACK_KEYS = ALL_KEYS.filter(k=>k.type==='black');
+
+function noteFreq(full) {
+  const m = full.match(/^([A-G]#?)(\d)$/); if(!m) return null;
+  return 440 * Math.pow(2, ((parseInt(m[2])+1)*12 + NOTE_NAMES.indexOf(m[1]) - 69) / 12);
+}
+
+// ─────────────────────────────────────────────
+//  LAYOUT
+// ─────────────────────────────────────────────
+const WW = Math.max(26, Math.floor(window.innerHeight * 0.04));
+const BW = Math.round(WW * 0.62);
+const whitePos = {};
+WHITE_KEYS.forEach((k,i) => whitePos[k.note]=i);
+
+function blackLeft(note) {
+  const m = note.match(/^([A-G]#?)(\d)$/);
+  const idx = NOTE_NAMES.indexOf(m[1]);
+  const ln = NOTE_NAMES[idx-1];
+  const o = parseInt(m[2]);
+  const leftNote = `${ln}${ln==='B'?o-1:o}`;
+  return (whitePos[leftNote]??0)*WW + WW*0.65;
+}
+
+// ─────────────────────────────────────────────
+//  BUILD DOM
+// ─────────────────────────────────────────────
+const pianoEl = document.getElementById('piano');
+pianoEl.style.width = (WHITE_KEYS.length*WW)+'px';
+const keyEls = {};
+
+WHITE_KEYS.forEach((k,i) => {
+  const el = document.createElement('div');
+  el.className = 'wkey';
+  el.style.cssText = `left:${i*WW}px;width:${WW-1}px;height:100%;`;
+  el._note = k.note;
+  const lbl = document.createElement('span');
+  lbl.className = 'nlabel';
+  lbl.textContent = k.note.startsWith('C') && !k.note.includes('#') ? k.note : '';
+  el.appendChild(lbl);
+  pianoEl.appendChild(el);
+  keyEls[k.note] = el;
+});
+
+BLACK_KEYS.forEach(k => {
+  const el = document.createElement('div');
+  el.className = 'bkey';
+  el.style.cssText = `left:${blackLeft(k.note)}px;width:${BW}px;height:58%;`;
+  el._note = k.note;
+  const lbl = document.createElement('span');
+  lbl.className = 'nlabel'; lbl.textContent = k.note;
+  el.appendChild(lbl);
+  pianoEl.appendChild(el);
+  keyEls[k.note] = el;
+});
+
+// ─────────────────────────────────────────────
+//  AUDIO
+// ─────────────────────────────────────────────
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (audioCtx.state==='suspended') audioCtx.resume();
+}
+function playTone(freq, dur=0.7) {
+  if (!audioCtx||!freq) return;
+  const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.type='triangle'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.28, audioCtx.currentTime+0.015);
+  gain.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime+dur*0.3);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+  osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime+dur);
+}
+
+// ─────────────────────────────────────────────
+//  RIPPLE EFFECT
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('ripple-canvas');
+const ctx2d  = canvas.getContext('2d');
+let ripples  = [];
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function spawnRipple(x, y, isBlack) {
+  ripples.push({ x, y, r: 0, maxR: 90, alpha: 1, color: isBlack ? '#ff2d78' : '#00f0ff' });
+}
+
+function animRipples() {
+  ctx2d.clearRect(0,0,canvas.width,canvas.height);
+  ripples = ripples.filter(r => r.alpha > 0.01);
+  for (const r of ripples) {
+    ctx2d.beginPath();
+    ctx2d.arc(r.x, r.y, r.r, 0, Math.PI*2);
+    ctx2d.strokeStyle = r.color;
+    ctx2d.globalAlpha = r.alpha;
+    ctx2d.lineWidth   = 2;
+    ctx2d.stroke();
+    r.r     += 3;
+    r.alpha -= 0.03;
+  }
+  ctx2d.globalAlpha = 1;
+  requestAnimationFrame(animRipples);
+}
+animRipples();
+
+// ─────────────────────────────────────────────
+//  PRESS NOTE
+// ─────────────────────────────────────────────
+const activeTimers = {};
+function pressNote(note, x, y) {
+  ensureAudio();
+  const el = keyEls[note]; if (!el) return;
+  el.classList.add('active');
+  playTone(noteFreq(note), 0.75);
+  // ripple at touch point or centre of key
+  const rect = el.getBoundingClientRect();
+  spawnRipple(x ?? rect.left+rect.width/2, y ?? rect.top+rect.height*0.4, el.classList.contains('bkey'));
+  clearTimeout(activeTimers[note]);
+  activeTimers[note] = setTimeout(()=>el.classList.remove('active'), 380);
+}
+
+// ─────────────────────────────────────────────
+//  TOUCH / MOUSE
+// ─────────────────────────────────────────────
+function elFromPoint(x,y){ return document.elementFromPoint(x,y); }
+function noteFromEl(el){ return el?._note || el?.closest?.('.wkey,.bkey')?._note || null; }
+
+const held = new Map();
+pianoEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const note = noteFromEl(elFromPoint(t.clientX,t.clientY));
+    if (note) { held.set(t.identifier,note); pressNote(note,t.clientX,t.clientY); }
+  }
+},{ passive:false });
+pianoEl.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const note = noteFromEl(elFromPoint(t.clientX,t.clientY));
+    if (note && note!==held.get(t.identifier)) { held.set(t.identifier,note); pressNote(note,t.clientX,t.clientY); }
+  }
+},{ passive:false });
+pianoEl.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) held.delete(t.identifier);
+});
+let mdown=false;
+pianoEl.addEventListener('mousedown', e=>{
+  mdown=true;
+  const note=noteFromEl(e.target);
+  if(note) pressNote(note,e.clientX,e.clientY);
+});
+pianoEl.addEventListener('mouseover', e=>{
+  if(!mdown) return;
+  const note=noteFromEl(e.target);
+  if(note) pressNote(note,e.clientX,e.clientY);
+});
+window.addEventListener('mouseup',()=>mdown=false);
+
+// ─────────────────────────────────────────────
+//  LABEL TOGGLE
+// ─────────────────────────────────────────────
+let labelsOn = true;
+document.getElementById('labels-btn').addEventListener('click', function(){
+  labelsOn = !labelsOn;
+  this.textContent = labelsOn ? 'LABELS ON' : 'LABELS OFF';
+  this.classList.toggle('on', labelsOn);
+  document.querySelectorAll('.wkey,.bkey').forEach(el => el.classList.toggle('hide-label', !labelsOn));
+});
+
+// ─────────────────────────────────────────────
+//  OCTAVE BAR
+// ─────────────────────────────────────────────
+let octave=4;
+const octLabel = document.getElementById('oct-label');
+function scrollToOctave(o){
+  const wi = WHITE_KEYS.findIndex(k=>k.note===`C${o}`);
+  if(wi>=0){
+    const wrap=document.getElementById('piano-wrap');
+    wrap.scrollTo({left:Math.max(0,wi*WW - wrap.clientWidth/2 + 2*WW), behavior:'smooth'});
+  }
+}
+document.getElementById('oct-down').addEventListener('click',()=>{ octave=Math.max(0,octave-1); octLabel.textContent=`C${octave}`; scrollToOctave(octave); });
+document.getElementById('oct-up').addEventListener('click',()=>{ octave=Math.min(8,octave+1); octLabel.textContent=`C${octave}`; scrollToOctave(octave); });
+window.addEventListener('load',()=>scrollToOctave(4));
+
+// ─────────────────────────────────────────────
+//  SONGS (hardcoded sequences — fully offline)
+// ─────────────────────────────────────────────
+const SONGS = [
+  {
+    title: "Happy Birthday",
+    notes: [
+      {n:"C4",d:0.3,t:0},{n:"C4",d:0.15,t:0.35},{n:"D4",d:0.5,t:0.5},{n:"C4",d:0.5,t:1.1},{n:"F4",d:0.5,t:1.7},{n:"E4",d:0.9,t:2.3},
+      {n:"C4",d:0.3,t:3.4},{n:"C4",d:0.15,t:3.75},{n:"D4",d:0.5,t:3.9},{n:"C4",d:0.5,t:4.5},{n:"G4",d:0.5,t:5.1},{n:"F4",d:0.9,t:5.7},
+      {n:"C4",d:0.3,t:6.8},{n:"C4",d:0.15,t:7.15},{n:"C5",d:0.5,t:7.3},{n:"A4",d:0.5,t:7.9},{n:"F4",d:0.5,t:8.5},{n:"E4",d:0.5,t:9.1},{n:"D4",d:0.9,t:9.7},
+      {n:"A#4",d:0.3,t:10.8},{n:"A#4",d:0.15,t:11.15},{n:"A4",d:0.5,t:11.3},{n:"F4",d:0.5,t:11.9},{n:"G4",d:0.5,t:12.5},{n:"F4",d:1.2,t:13.1}
+    ]
+  },
+  {
+    title: "Twinkle Twinkle",
+    notes: [
+      {n:"C4",d:0.4,t:0},{n:"C4",d:0.4,t:0.45},{n:"G4",d:0.4,t:0.9},{n:"G4",d:0.4,t:1.35},{n:"A4",d:0.4,t:1.8},{n:"A4",d:0.4,t:2.25},{n:"G4",d:0.8,t:2.7},
+      {n:"F4",d:0.4,t:3.6},{n:"F4",d:0.4,t:4.05},{n:"E4",d:0.4,t:4.5},{n:"E4",d:0.4,t:4.95},{n:"D4",d:0.4,t:5.4},{n:"D4",d:0.4,t:5.85},{n:"C4",d:0.8,t:6.3},
+      {n:"G4",d:0.4,t:7.2},{n:"G4",d:0.4,t:7.65},{n:"F4",d:0.4,t:8.1},{n:"F4",d:0.4,t:8.55},{n:"E4",d:0.4,t:9.0},{n:"E4",d:0.4,t:9.45},{n:"D4",d:0.8,t:9.9},
+      {n:"G4",d:0.4,t:10.8},{n:"G4",d:0.4,t:11.25},{n:"F4",d:0.4,t:11.7},{n:"F4",d:0.4,t:12.15},{n:"E4",d:0.4,t:12.6},{n:"E4",d:0.4,t:13.05},{n:"D4",d:0.8,t:13.5},
+      {n:"C4",d:0.4,t:14.4},{n:"C4",d:0.4,t:14.85},{n:"G4",d:0.4,t:15.3},{n:"G4",d:0.4,t:15.75},{n:"A4",d:0.4,t:16.2},{n:"A4",d:0.4,t:16.65},{n:"G4",d:0.8,t:17.1},
+      {n:"F4",d:0.4,t:18.0},{n:"F4",d:0.4,t:18.45},{n:"E4",d:0.4,t:18.9},{n:"E4",d:0.4,t:19.35},{n:"D4",d:0.4,t:19.8},{n:"D4",d:0.4,t:20.25},{n:"C4",d:0.8,t:20.7}
+    ]
+  },
+  {
+    title: "Jingle Bells",
+    notes: [
+      {n:"E4",d:0.3,t:0},{n:"E4",d:0.3,t:0.35},{n:"E4",d:0.6,t:0.7},
+      {n:"E4",d:0.3,t:1.4},{n:"E4",d:0.3,t:1.75},{n:"E4",d:0.6,t:2.1},
+      {n:"E4",d:0.3,t:2.8},{n:"G4",d:0.3,t:3.15},{n:"C4",d:0.3,t:3.5},{n:"D4",d:0.3,t:3.85},{n:"E4",d:0.9,t:4.2},
+      {n:"F4",d:0.3,t:5.2},{n:"F4",d:0.3,t:5.55},{n:"F4",d:0.3,t:5.9},{n:"F4",d:0.3,t:6.25},
+      {n:"F4",d:0.3,t:6.6},{n:"E4",d:0.3,t:6.95},{n:"E4",d:0.3,t:7.3},{n:"E4",d:0.3,t:7.65},
+      {n:"E4",d:0.3,t:8.0},{n:"D4",d:0.3,t:8.35},{n:"D4",d:0.3,t:8.7},{n:"E4",d:0.3,t:9.05},{n:"D4",d:0.5,t:9.4},{n:"G4",d:0.6,t:10.0},
+      {n:"E4",d:0.3,t:10.8},{n:"E4",d:0.3,t:11.15},{n:"E4",d:0.6,t:11.5},
+      {n:"E4",d:0.3,t:12.2},{n:"E4",d:0.3,t:12.55},{n:"E4",d:0.6,t:12.9},
+      {n:"E4",d:0.3,t:13.6},{n:"G4",d:0.3,t:13.95},{n:"C4",d:0.3,t:14.3},{n:"D4",d:0.3,t:14.65},{n:"E4",d:0.9,t:15.0},
+      {n:"F4",d:0.3,t:16.0},{n:"F4",d:0.3,t:16.35},{n:"F4",d:0.3,t:16.7},{n:"F4",d:0.3,t:17.05},
+      {n:"F4",d:0.3,t:17.4},{n:"E4",d:0.3,t:17.75},{n:"E4",d:0.3,t:18.1},{n:"E4",d:0.3,t:18.45},
+      {n:"G4",d:0.3,t:18.8},{n:"G4",d:0.3,t:19.15},{n:"F4",d:0.3,t:19.5},{n:"D4",d:0.3,t:19.85},{n:"C4",d:0.8,t:20.2}
+    ]
+  },
+  {
+    title: "Für Elise",
+    notes: [
+      {n:"E5",d:0.2,t:0},{n:"D#5",d:0.2,t:0.2},{n:"E5",d:0.2,t:0.4},{n:"D#5",d:0.2,t:0.6},{n:"E5",d:0.2,t:0.8},{n:"B4",d:0.2,t:1.0},{n:"D5",d:0.2,t:1.2},{n:"C5",d:0.2,t:1.4},{n:"A4",d:0.5,t:1.6},
+      {n:"C4",d:0.2,t:2.2},{n:"E4",d:0.2,t:2.4},{n:"A4",d:0.2,t:2.6},{n:"B4",d:0.5,t:2.8},
+      {n:"E4",d:0.2,t:3.4},{n:"G#4",d:0.2,t:3.6},{n:"B4",d:0.2,t:3.8},{n:"C5",d:0.5,t:4.0},
+      {n:"E4",d:0.2,t:4.6},{n:"E5",d:0.2,t:4.8},{n:"D#5",d:0.2,t:5.0},{n:"E5",d:0.2,t:5.2},{n:"D#5",d:0.2,t:5.4},{n:"E5",d:0.2,t:5.6},{n:"B4",d:0.2,t:5.8},{n:"D5",d:0.2,t:6.0},{n:"C5",d:0.2,t:6.2},{n:"A4",d:0.5,t:6.4},
+      {n:"C4",d:0.2,t:7.0},{n:"E4",d:0.2,t:7.2},{n:"A4",d:0.2,t:7.4},{n:"B4",d:0.5,t:7.6},
+      {n:"E4",d:0.2,t:8.2},{n:"C5",d:0.2,t:8.4},{n:"B4",d:0.2,t:8.6},{n:"A4",d:0.7,t:8.8}
+    ]
+  },
+  {
+    title: "Ode to Joy",
+    notes: [
+      {n:"E4",d:0.35,t:0},{n:"E4",d:0.35,t:0.4},{n:"F4",d:0.35,t:0.8},{n:"G4",d:0.35,t:1.2},{n:"G4",d:0.35,t:1.6},{n:"F4",d:0.35,t:2.0},{n:"E4",d:0.35,t:2.4},{n:"D4",d:0.35,t:2.8},
+      {n:"C4",d:0.35,t:3.2},{n:"C4",d:0.35,t:3.6},{n:"D4",d:0.35,t:4.0},{n:"E4",d:0.35,t:4.4},{n:"E4",d:0.5,t:4.8},{n:"D4",d:0.2,t:5.35},{n:"D4",d:0.7,t:5.6},
+      {n:"E4",d:0.35,t:6.4},{n:"E4",d:0.35,t:6.8},{n:"F4",d:0.35,t:7.2},{n:"G4",d:0.35,t:7.6},{n:"G4",d:0.35,t:8.0},{n:"F4",d:0.35,t:8.4},{n:"E4",d:0.35,t:8.8},{n:"D4",d:0.35,t:9.2},
+      {n:"C4",d:0.35,t:9.6},{n:"C4",d:0.35,t:10.0},{n:"D4",d:0.35,t:10.4},{n:"E4",d:0.35,t:10.8},{n:"D4",d:0.5,t:11.2},{n:"C4",d:0.2,t:11.75},{n:"C4",d:0.7,t:12.0}
+    ]
+  },
+  {
+    title: "Canon in D",
+    notes: [
+      {n:"F#4",d:0.4,t:0},{n:"E4",d:0.4,t:0.5},{n:"D4",d:0.4,t:1.0},{n:"C#4",d:0.4,t:1.5},{n:"B3",d:0.4,t:2.0},{n:"A3",d:0.4,t:2.5},{n:"B3",d:0.4,t:3.0},{n:"C#4",d:0.4,t:3.5},
+      {n:"D4",d:0.4,t:4.0},{n:"C#4",d:0.4,t:4.5},{n:"B3",d:0.4,t:5.0},{n:"A3",d:0.4,t:5.5},{n:"G3",d:0.4,t:6.0},{n:"F#3",d:0.4,t:6.5},{n:"G3",d:0.4,t:7.0},{n:"A3",d:0.4,t:7.5},
+      {n:"D4",d:0.3,t:8.0},{n:"E4",d:0.3,t:8.4},{n:"F#4",d:0.3,t:8.8},{n:"G4",d:0.3,t:9.2},{n:"F#4",d:0.3,t:9.6},{n:"E4",d:0.3,t:10.0},{n:"D4",d:0.3,t:10.4},{n:"C#4",d:0.3,t:10.8},
+      {n:"D4",d:0.3,t:11.2},{n:"E4",d:0.3,t:11.6},{n:"F#4",d:0.3,t:12.0},{n:"A4",d:0.3,t:12.4},{n:"G4",d:0.3,t:12.8},{n:"F#4",d:0.3,t:13.2},{n:"E4",d:0.3,t:13.6},{n:"D4",d:0.6,t:14.0}
+    ]
+  },
+  {
+    title: "Amazing Grace",
+    notes: [
+      {n:"G4",d:0.3,t:0},
+      {n:"C5",d:0.5,t:0.4},{n:"C5",d:0.3,t:1.0},{n:"E5",d:0.5,t:1.4},{n:"C5",d:0.3,t:2.0},{n:"E5",d:0.6,t:2.4},{n:"D5",d:0.7,t:3.1},
+      {n:"C5",d:0.5,t:3.9},{n:"C5",d:0.3,t:4.5},{n:"A4",d:0.8,t:4.9},{n:"G4",d:0.3,t:5.8},
+      {n:"G4",d:0.5,t:6.2},{n:"C5",d:0.3,t:6.8},{n:"C5",d:0.5,t:7.2},{n:"E5",d:0.5,t:7.8},{n:"C5",d:0.3,t:8.4},{n:"E5",d:0.5,t:8.8},{n:"D5",d:0.8,t:9.4},
+      {n:"C5",d:0.5,t:10.3},{n:"E5",d:0.3,t:10.9},{n:"G5",d:0.6,t:11.3},{n:"G5",d:0.3,t:12.0},{n:"E5",d:0.5,t:12.4},{n:"G5",d:0.4,t:13.0},
+      {n:"E5",d:0.5,t:13.5},{n:"C5",d:0.3,t:14.1},{n:"D5",d:0.5,t:14.5},{n:"C5",d:0.3,t:15.1},{n:"A4",d:0.8,t:15.5},{n:"G4",d:0.3,t:16.4},
+      {n:"G4",d:0.4,t:16.8},{n:"C5",d:0.3,t:17.3},{n:"C5",d:0.5,t:17.7},{n:"E5",d:0.5,t:18.3},{n:"C5",d:0.3,t:18.9},{n:"E5",d:0.5,t:19.3},{n:"D5",d:0.6,t:19.9},
+      {n:"C5",d:1.2,t:20.6}
+    ]
+  },
+  {
+    title: "Mary Had a Little Lamb",
+    notes: [
+      {n:"E4",d:0.35,t:0},{n:"D4",d:0.35,t:0.4},{n:"C4",d:0.35,t:0.8},{n:"D4",d:0.35,t:1.2},{n:"E4",d:0.35,t:1.6},{n:"E4",d:0.35,t:2.0},{n:"E4",d:0.6,t:2.4},
+      {n:"D4",d:0.35,t:3.1},{n:"D4",d:0.35,t:3.5},{n:"D4",d:0.6,t:3.9},{n:"E4",d:0.35,t:4.6},{n:"G4",d:0.35,t:5.0},{n:"G4",d:0.6,t:5.4},
+      {n:"E4",d:0.35,t:6.1},{n:"D4",d:0.35,t:6.5},{n:"C4",d:0.35,t:6.9},{n:"D4",d:0.35,t:7.3},{n:"E4",d:0.35,t:7.7},{n:"E4",d:0.35,t:8.1},{n:"E4",d:0.35,t:8.5},{n:"E4",d:0.35,t:8.9},
+      {n:"D4",d:0.35,t:9.3},{n:"D4",d:0.35,t:9.7},{n:"E4",d:0.35,t:10.1},{n:"D4",d:0.35,t:10.5},{n:"C4",d:0.8,t:10.9}
+    ]
+  }
+];
+
+// ─────────────────────────────────────────────
+//  SONG PLAYER
+// ─────────────────────────────────────────────
+let currentIdx  = -1;
+let playerTouts = [];
+let isPlaying   = false;
+let songStartTime = 0;
+let progressInterval = null;
+
+const npTitle   = document.getElementById('np-title');
+const progBar   = document.getElementById('progress-bar');
+const playBtn   = document.getElementById('play-btn');
+const songList  = document.getElementById('song-list');
+
+// Build chips
+SONGS.forEach((s,i) => {
+  const chip = document.createElement('button');
+  chip.className = 'song-chip';
+  chip.textContent = s.title;
+  chip.addEventListener('click', () => selectAndPlay(i));
+  songList.appendChild(chip);
+});
+
+function selectAndPlay(idx) {
+  stopPlayer();
+  currentIdx = idx;
+  document.querySelectorAll('.song-chip').forEach((c,i)=>c.classList.toggle('playing',i===idx));
+  npTitle.textContent = SONGS[idx].title;
+  progBar.style.width = '0%';
+  startPlayer();
+  scrollToOctave(4);
+}
+
+function startPlayer() {
+  if (currentIdx < 0) return;
+  isPlaying = true;
+  playBtn.innerHTML = '&#9646;&#9646;';
+  ensureAudio();
+  const song = SONGS[currentIdx];
+  const totalDur = Math.max(...song.notes.map(n=>n.t+n.d));
+  songStartTime = performance.now();
+
+  song.notes.forEach(n => {
+    const t = setTimeout(() => {
+      pressNote(n.n);
+      // scroll follow
+      const wi = WHITE_KEYS.findIndex(k=>k.note===n.n || (k.note===n.n.replace('#','')));
+      if (wi>=0){
+        const wrap=document.getElementById('piano-wrap');
+        wrap.scrollTo({left:Math.max(0,wi*WW-wrap.clientWidth/2+2*WW),behavior:'smooth'});
+      }
+    }, n.t*1000);
+    playerTouts.push(t);
+  });
+
+  const done = setTimeout(() => {
+    isPlaying = false;
+    playBtn.innerHTML = '&#9654;';
+    progBar.style.width = '100%';
+    document.querySelectorAll('.song-chip').forEach(c=>c.classList.remove('playing'));
+  }, totalDur*1000+500);
+  playerTouts.push(done);
+
+  clearInterval(progressInterval);
+  progressInterval = setInterval(() => {
+    if (!isPlaying) { clearInterval(progressInterval); return; }
+    const elapsed = (performance.now()-songStartTime)/1000;
+    const pct = Math.min(100, (elapsed/totalDur)*100);
+    progBar.style.width = pct+'%';
+  }, 80);
+}
+
+function stopPlayer() {
+  playerTouts.forEach(clearTimeout); playerTouts=[];
+  clearInterval(progressInterval);
+  isPlaying=false;
+  playBtn.innerHTML='&#9654;';
+  document.querySelectorAll('.song-chip').forEach(c=>c.classList.remove('playing'));
+}
+
+playBtn.addEventListener('click', () => {
+  if (isPlaying) { stopPlayer(); return; }
+  if (currentIdx>=0) startPlayer(); else selectAndPlay(0);
+});
+document.getElementById('stop-btn').addEventListener('click', ()=>{ stopPlayer(); progBar.style.width='0%'; npTitle.textContent='— select a song —'; currentIdx=-1; });
+document.getElementById('prev-btn').addEventListener('click', ()=>{ if(currentIdx>0) selectAndPlay(currentIdx-1); else selectAndPlay(SONGS.length-1); });
+document.getElementById('next-btn').addEventListener('click', ()=>{ selectAndPlay((currentIdx+1)%SONGS.length); });
+
+// Register service worker
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+</script>
+</body>
+</html>
